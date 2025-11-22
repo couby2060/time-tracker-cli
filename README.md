@@ -168,6 +168,28 @@ This tool follows the "Quick Win" / "Micro-Tool" philosophy:
 - macOS-native integration
 - Easy to backup/version (plain JSON)
 
+## Testing
+
+This project includes a comprehensive test suite with **78 tests** covering all functionality:
+
+```bash
+# Install test dependencies
+pip3 install -r requirements-dev.txt
+
+# Run all tests
+./run_tests.sh
+
+# Run with coverage report
+./run_tests.sh coverage
+
+# Quick test run
+./run_tests.sh quick
+```
+
+**Test Coverage:** 91% of code is tested
+
+See [TEST_README.md](TEST_README.md) for detailed testing documentation.
+
 ## License
 
 MIT License - feel free to use and modify as needed.

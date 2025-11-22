@@ -27,3 +27,8 @@ build/
 # Logs
 *.log
 
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
