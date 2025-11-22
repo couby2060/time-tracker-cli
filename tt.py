@@ -249,6 +249,96 @@ def cmd_add():
     save_json(CONFIG_FILE, config)
     print("✅ Saved.")
 
+def cmd_shortcut(args):
+    """Manage shortcuts for recurring tasks."""
+    config = load_json(CONFIG_FILE, {"customers": [], "shortcuts": {}})
+    
+    # Special flag for shell completion scripts
+    if args and args[0] == "--complete":
+        shortcuts = config.get("shortcuts", {})
+        for name in sorted(shortcuts.keys()):
+            print(f"@{name}")
+        return
+    
+    # Special flag for fzf picker
+    if args and args[0] == "pick":
+        shortcuts = config.get("shortcuts", {})
+        if not shortcuts:
+            return
+        # Print in fzf-friendly format: name\tcustomer\tproject\tnote
+        for name, data in sorted(shortcuts.items()):
+            note = data.get('note', '')
+            print(f"{name}\t{data['customer']}\t{data['project']}\t{note}")
+        return
+    
+    if not args or args[0] == "list":
+        # List all shortcuts
+        shortcuts = config.get("shortcuts", {})
+        if not shortcuts:
+            print("No shortcuts defined.")
+            print("Create one with: tt shortcut add <name> <customer> <project> [note]")
+            return
+        
+        print("\n--- SHORTCUTS ---")
+        for name, data in sorted(shortcuts.items()):
+            note_str = f" - {data['note']}" if data.get('note') else ""
+            print(f"  @{name:<12} → {data['customer']} / {data['project']}{note_str}")
+        print(f"\nTotal: {len(shortcuts)} shortcut(s)")
+        print("Usage: tt start @{name} or tt start -s {name}")
+        return
+    
+    action = args[0].lower()
+    
+    if action == "add":
+        if len(args) < 4:
+            print("❌ Usage: tt shortcut add <name> <customer> <project> [note]")
+            print("   Example: tt shortcut add daily \"Acme Corp\" \"Management\" \"Daily standup\"")
+            return
+        
+        name = args[1].lower()
+        customer = args[2]
+        project = args[3]
+        note = " ".join(args[4:]) if len(args) > 4 else ""
+        
+        if "shortcuts" not in config:
+            config["shortcuts"] = {}
+        
+        # Check if shortcut already exists
+        if name in config["shortcuts"]:
+            print(f"⚠️  Shortcut '@{name}' already exists. Overwriting...")
+        
+        config["shortcuts"][name] = {
+            "customer": customer,
+            "project": project,
+            "note": note
+        }
+        
+        save_json(CONFIG_FILE, config)
+        print(f"✅ Shortcut '@{name}' created.")
+        print(f"   Use with: tt start @{name}")
+    
+    elif action == "delete" or action == "remove" or action == "rm":
+        if len(args) < 2:
+            print("❌ Usage: tt shortcut delete <name>")
+            return
+        
+        name = args[1].lower()
+        shortcuts = config.get("shortcuts", {})
+        
+        if name in shortcuts:
+            del shortcuts[name]
+            save_json(CONFIG_FILE, config)
+            print(f"🗑️  Shortcut '@{name}' deleted.")
+        else:
+            print(f"❌ Shortcut '@{name}' not found.")
+            print("   Run 'tt shortcut list' to see available shortcuts.")
+    
+    else:
+        print("❌ Unknown action. Usage: tt shortcut [list|add|delete]")
+        print("   tt shortcut list              - List all shortcuts")
+        print("   tt shortcut add <name> ...    - Create a shortcut")
+        print("   tt shortcut delete <name>     - Remove a shortcut")
+
 def cmd_start(args):
     data = load_json(DATA_FILE, {"current": None, "history": []})
     
@@ -256,8 +346,46 @@ def cmd_start(args):
     if data["current"]:
         stop_current(data)
 
-    # Get details (now returns 3 values including note)
-    customer, project, note = get_customer_and_project(args)
+    customer = None
+    project = None
+    note = None
+    
+    # Check for shortcut syntax: -s shortcut_name or @shortcut_name
+    if args and (args[0] == "-s" or args[0].startswith("@")):
+        config = load_json(CONFIG_FILE, {"customers": [], "shortcuts": {}})
+        shortcuts = config.get("shortcuts", {})
+        
+        # Get shortcut name
+        if args[0] == "-s":
+            if len(args) < 2:
+                print("❌ Usage: tt start -s <shortcut_name>")
+                print("   Run 'tt shortcut list' to see available shortcuts.")
+                return
+            shortcut_name = args[1].lower()
+            extra_note = " ".join(args[2:]) if len(args) > 2 else ""
+        else:  # @shortcut
+            shortcut_name = args[0][1:].lower()  # Remove @
+            extra_note = " ".join(args[1:]) if len(args) > 1 else ""
+        
+        if shortcut_name not in shortcuts:
+            print(f"❌ Shortcut '@{shortcut_name}' not found.")
+            print("   Run 'tt shortcut list' to see available shortcuts.")
+            return
+        
+        # Load from shortcut
+        shortcut = shortcuts[shortcut_name]
+        customer = shortcut["customer"]
+        project = shortcut["project"]
+        note = shortcut.get("note", "")
+        
+        # Append extra note if provided
+        if extra_note:
+            note = f"{note}, {extra_note}" if note else extra_note
+        
+        print(f"📌 Using shortcut '@{shortcut_name}'")
+    else:
+        # Normal flow
+        customer, project, note = get_customer_and_project(args)
     
     if not customer or not project:
         print("❌ Cancelled or Invalid Input.")
@@ -422,17 +550,31 @@ def cmd_reset():
 def cmd_help():
     print("\n--- TIME TRACKER HELP ---")
     print("Note: All times are rounded up to the nearest 15 minutes per session.")
-    print("-" * 60)
-    print("tt start                 -> Interactive menu")
-    print("tt start 1 2 [Task]      -> Quick start with optional task description")
-    print("tt start 1               -> Select Customer 1, ask for Project")
-    print("tt start Cust Proj Task  -> Ad-hoc start with task description")
-    print("tt note \"Text\"           -> Add note to current running task")
-    print("tt stop                  -> Stop timer")
-    print("tt report                -> View detailed breakdown")
-    print("tt copy                  -> Copy detailed breakdown to clipboard")
-    print("tt add                   -> Add customers/projects to config")
-    print("tt reset                 -> Clear today's data")
+    print("-" * 70)
+    print("BASIC COMMANDS:")
+    print("  tt start                    -> Interactive menu")
+    print("  tt start 1 2 [Task]         -> Quick start with optional task description")
+    print("  tt start @<shortcut>        -> Start using a saved shortcut")
+    print("  tt start -s <shortcut>      -> Alternative shortcut syntax")
+    print("  tt note \"Text\"              -> Add note to current running task")
+    print("  tt stop                     -> Stop timer")
+    print("  tt report                   -> View detailed breakdown")
+    print("  tt copy                     -> Copy detailed breakdown to clipboard")
+    print()
+    print("SHORTCUTS (for recurring tasks):")
+    print("  tt shortcut list            -> List all saved shortcuts")
+    print("  tt shortcut add <name> ...  -> Create a new shortcut")
+    print("  tt shortcut delete <name>   -> Remove a shortcut")
+    print()
+    print("CONFIGURATION:")
+    print("  tt add                      -> Add customers/projects to config")
+    print("  tt reset                    -> Clear today's data")
+    print()
+    print("Example workflow:")
+    print("  tt shortcut add daily \"Acme\" \"Mgmt\" \"Daily standup\"")
+    print("  tt start @daily")
+    print("  tt note \"Discussed sprint goals\"")
+    print("  tt stop")
 
 def main():
     if len(sys.argv) < 2:
@@ -443,6 +585,8 @@ def main():
     
     if cmd == "start":
         cmd_start(sys.argv[2:])
+    elif cmd == "shortcut" or cmd == "shortcuts":
+        cmd_shortcut(sys.argv[2:])
     elif cmd == "note":
         cmd_note(sys.argv[2:])
     elif cmd == "add":

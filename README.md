@@ -9,6 +9,8 @@ A lightweight, macOS-native command-line time tracking tool for daily work loggi
 - 🔄 **15-Minute Rounding** - Automatically rounds up to nearest 15-minute block
 - 📊 **Hierarchical Reports** - View time grouped by customer, project, and task
 - 📋 **Clipboard Export** - Copy formatted summaries to clipboard (macOS `pbcopy`)
+- ⚡ **Shortcuts** - Save recurring tasks and start them instantly with `@shortcut`
+- 🔍 **Shell Completion** - TAB completion for shortcuts (zsh/bash) and fzf integration
 - 💾 **JSON Storage** - Lightweight persistence in home directory
 - 🔀 **Auto Context Switch** - Starting a new task automatically stops the previous one
 - 🎯 **Daily Reset** - Designed for single-day workflows
@@ -79,41 +81,73 @@ tt reset
 tt help
 ```
 
+### Shortcuts for Recurring Tasks
+
+```bash
+# Create a shortcut
+tt shortcut add daily "Acme Corp" "Management" "Daily standup meeting"
+tt shortcut add review "Acme Corp" "Dev" "Code review session"
+
+# List all shortcuts
+tt shortcut list
+
+# Use a shortcut (super fast!)
+tt start @daily
+tt start -s review
+
+# Start with shortcut and add extra note
+tt start @daily "Discussed sprint planning"
+
+# Delete a shortcut
+tt shortcut delete daily
+```
+
 ### Workflow Example
 
 ```bash
-# Morning: Start first task
-$ tt start Acme Consulting "Sprint planning meeting"
-▶️  Started: Acme - Consulting ('Sprint planning meeting')
+# Setup shortcuts once (one-time)
+$ tt shortcut add daily "Acme Corp" "Management" "Daily standup"
+$ tt shortcut add dev "Acme Corp" "Development" "Coding session"
+✅ Shortcuts created.
+
+# Morning: Start first task using shortcut
+$ tt start @daily
+📌 Using shortcut '@daily'
+▶️  Started: Acme Corp - Management ('Daily standup')
 
 # Add more notes during work
 $ tt note "Reviewed backlog items"
 📝 Note added: "Reviewed backlog items"
 
 # Switch to new task (auto-stops previous)
-$ tt start Acme Development "Bug fixing in authentication"
-⏹  Stopped: Acme - Consulting (Billed: 0h 45m)
-▶️  Started: Acme - Development ('Bug fixing in authentication')
+$ tt start @dev "Bug fixing in authentication"
+⏹  Stopped: Acme Corp - Management (Billed: 0h 45m)
+📌 Using shortcut '@dev'
+▶️  Started: Acme Corp - Development ('Coding session, Bug fixing in authentication')
 
 # View daily summary
 $ tt report
 --- DAILY REPORT (15min blocks, grouped) ---
 CUSTOMER        | PROJECT        | TOTAL    | DETAILS
 ---------------------------------------------------------------------------
-Acme            | Consulting     | 00:45    | 45 min
-                                   - Sprint planning meeting, Reviewed... | 45 min
-Acme            | Development    | 01:00    | 60 min
-                                   - Bug fixing in authentication         | 60 min
+Acme Corp       | Development    | 01:00    | 60 min
+                                   - Coding session, Bug fixing...        | 60 min
+Acme Corp       | Management     | 00:45    | 45 min
+                                   - Daily standup, Reviewed backlog...   | 45 min
 ---------------------------------------------------------------------------
 TOTAL: 01:45 (105 min)
 ```
 
 ## Data Storage
 
-- **Config:** `~/.tt_config.json` (customers & projects)
+- **Config:** `~/.tt_config.json` (customers, projects & shortcuts)
 - **Daily Data:** `~/.tt_data.json` (current timer & history)
 
 Both files are simple JSON and can be manually edited if needed.
+
+## Shell Completion
+
+The tool supports TAB completion for shortcuts in zsh and bash. See [SHELL_COMPLETION.md](SHELL_COMPLETION.md) for setup instructions.
 
 ## 15-Minute Rounding
 
