@@ -509,22 +509,14 @@ def cmd_report(copy_mode=False):
         print(f"{cust:<15} | {proj:<15} | {th:02d}:{tm:02d}    | {total_min} min")
         
         # Details (Tasks)
-        task_items = []
         for task_name, task_seconds in info["tasks"].items():
             t_min = int(task_seconds / 60)
             t_h, t_m = get_formatted_duration(task_seconds)
             print(f"{'':<35}  - {task_name:<25} | {t_min} min")
             
-            # Collect for clipboard
-            if task_name != "No Description":
-                task_items.append(f"{task_name} ({t_min}m)")
-        
-        # Build clipboard string
-        if task_items:
-            details = ", ".join(task_items)
-            clipboard_text += f"{cust} - {proj}: {total_min} min [{details}]\n"
-        else:
-            clipboard_text += f"{cust} - {proj}: {total_min} min\n"
+            # Build clipboard string - one line per task/comment
+            # Format: Customer Name // Project name // Comment // duration in minutes.
+            clipboard_text += f"{cust} // {proj} // {task_name} // {t_min}\n"
 
     print("-" * 75)
     day_h, day_m = get_formatted_duration(total_day_seconds)
